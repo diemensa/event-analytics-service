@@ -15,6 +15,8 @@ type Config struct {
 
 	RabbitMQURI     string
 	RabbitQueueName string
+
+	PrometheusMetricsPort string
 }
 
 func LoadEnv() *Config {
@@ -28,7 +30,8 @@ func LoadEnv() *Config {
 		DBPassword: os.Getenv("DB_PASSWORD"),
 		DBName:     os.Getenv("DB_NAME"),
 
-		RabbitMQURI:     os.Getenv("RABBITMQ_URI"),
-		RabbitQueueName: os.Getenv("RABBITMQ_QUEUE"),
+		RabbitMQURI:           os.Getenv("RABBITMQ_URI"),
+		RabbitQueueName:       os.Getenv("RABBITMQ_QUEUE"),
+		PrometheusMetricsPort: os.Getenv("PROMETHEUS_METRICS_PORT"),
 	}
 }

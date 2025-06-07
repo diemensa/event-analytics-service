@@ -5,9 +5,11 @@ import (
 	"github.com/diemensa/event-analytics-service/config"
 	"github.com/diemensa/event-analytics-service/internal/broker"
 	"github.com/diemensa/event-analytics-service/internal/handler"
+	"github.com/diemensa/event-analytics-service/internal/metrics"
 	"github.com/diemensa/event-analytics-service/internal/repository"
 	"github.com/diemensa/event-analytics-service/internal/service"
 	"github.com/diemensa/event-analytics-service/internal/worker"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 )
@@ -55,6 +57,9 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	metrics.PrometheusInit()
+	http.Handle("/metrics", promhttp.Handler())
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
