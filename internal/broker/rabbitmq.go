@@ -3,25 +3,29 @@ package broker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/diemensa/event-analytics-service/internal/model"
-	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type RabbitPublisher struct {
-	conn    *amqp091.Connection
-	channel *amqp091.Channel
-	queue   amqp091.Queue
+	conn    *amqp.Connection
+	channel *amqp.Channel
+	queue   amqp.Queue
 }
 
 func NewRabbitPublisher(uri, queueName string) (*RabbitPublisher, error) {
-	conn, err := amqp091.Dial(uri)
+	conn, err := amqp.Dial(uri)
 	if err != nil {
 		return nil, err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		conn.Close()
+		err = conn.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to close rabbitmq connection: %v", err)
+		}
 		return nil, err
 	}
 
@@ -35,8 +39,17 @@ func NewRabbitPublisher(uri, queueName string) (*RabbitPublisher, error) {
 	)
 
 	if err != nil {
-		ch.Close()
-		conn.Close()
+
+		err = ch.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to close publisher channel: %v", err)
+		}
+
+		err = conn.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to close publisher connection: %v", err)
+		}
+
 		return nil, err
 	}
 
@@ -59,18 +72,18 @@ func (rp *RabbitPublisher) Publish(ctx context.Context, e *model.Event) error {
 		rp.queue.Name,
 		false,
 		false,
-		amqp091.Publishing{
-			ContentType: "application/json",
-			Body:        data,
-		},
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         data,
+			DeliveryMode: amqp.Persistent},
 	)
 
 }
 
-func (rp *RabbitPublisher) Consume(queueName string) (<-chan amqp091.Delivery, error) {
-	messages, err := rp.channel.Consume(
-		queueName,
-		"",
+func (rp *RabbitPublisher) Consume() (<-chan amqp.Delivery, error) {
+	messageChan, err := rp.channel.Consume(
+		rp.queue.Name,
+		"events-consumer",
 		false,
 		false,
 		false,
@@ -81,7 +94,7 @@ func (rp *RabbitPublisher) Consume(queueName string) (<-chan amqp091.Delivery, e
 		return nil, err
 	}
 
-	return messages, nil
+	return messageChan, nil
 }
 
 func (rp *RabbitPublisher) Close() error {

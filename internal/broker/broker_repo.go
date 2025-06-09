@@ -6,16 +6,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Producer - Kafka
-type Producer interface {
-	Send(ctx context.Context, e *model.Event) error
-	Close() error
-}
-
 // Publisher - RabbitMQ
 type Publisher interface {
 	Publish(ctx context.Context, e *model.Event) error
-	Consume(queueName string) (<-chan amqp.Delivery, error)
+	Consume() (<-chan amqp.Delivery, error)
 	Close() error
 }
 
@@ -28,4 +22,4 @@ type Publisher interface {
 // в переговорной. Мидл+ торжественно подошел к рубашке
 // тимлида, вынул бумажку и развернул ее.
 // На бумажке было написано:
-// "Producer - Kafka, Publisher - RabbitMQ"
+// "Publisher - RabbitMQ, Producer - Kafka"

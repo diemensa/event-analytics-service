@@ -2,16 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"github.com/diemensa/event-analytics-service/config"
 	"github.com/diemensa/event-analytics-service/internal/broker"
 	"github.com/diemensa/event-analytics-service/internal/handler"
-	"github.com/diemensa/event-analytics-service/internal/metrics"
 	"github.com/diemensa/event-analytics-service/internal/repository"
 	"github.com/diemensa/event-analytics-service/internal/service"
 	"github.com/diemensa/event-analytics-service/internal/worker"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -23,44 +26,52 @@ func main() {
 	}
 
 	const workerCount = 10
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	rabbit, err := broker.NewRabbitPublisher(cfg.RabbitMQURI, cfg.RabbitQueueName)
+	rabbitRepo, err := broker.NewRabbitPublisher(cfg.RabbitMQURI, cfg.RabbitQueueName)
 	if err != nil {
 		log.Fatalf("couldn't connect to rabbitMQ: %v", err)
 	}
 	defer func() {
-		if err = rabbit.Close(); err != nil {
+		if err = rabbitRepo.Close(); err != nil {
 			log.Printf("failed to close rabbit publisher: %v", err)
 		}
 	}()
 
 	eventRepo := repository.NewEventRepo(db)
-	eventService := service.NewEventService(rabbit, eventRepo)
+	eventService := service.NewEventService(rabbitRepo, eventRepo)
 
-	messageChan, err := rabbit.Consume(cfg.RabbitQueueName)
+	messageChan, err := rabbitRepo.Consume()
 	if err != nil {
 		log.Fatalf("failed to start consuming rabbit channel: %v", err)
 	}
 	workerPool := worker.NewPool(eventService, eventRepo, messageChan)
 	workerPool.Start(ctx, workerCount)
 
-	eventHandler := handler.NewEventHandler(eventService)
+	handler.SetupHandlers(eventService)
 
-	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			eventHandler.NewGetEventHandler(w, r)
-		case http.MethodPost:
-			eventHandler.HandleCreateEvent(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	server := &http.Server{Addr: ":8080", Handler: nil}
+
+	go func() {
+		log.Println("server started on :8080")
+		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
+			log.Fatalf("listen: %s\n", err)
 		}
-	})
+	}()
 
-	metrics.PrometheusInit()
-	http.Handle("/metrics", promhttp.Handler())
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	<-signalChan
+	log.Println("shutting down gracefully...")
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
 
+	err = server.Shutdown(shutdownCtx)
+	if err != nil {
+		log.Fatalf("server couldn't shutdown gracefully: %v", err)
+	}
+
+	log.Println("server closed")
 }
