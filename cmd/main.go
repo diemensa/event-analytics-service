@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -22,10 +23,14 @@ func main() {
 
 	db, err := config.InitPostgres(cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
 	if err != nil {
-		log.Fatal("couldn't connect to database:", err.Error())
+		log.Fatalf("couldn't connect to database: %v", err)
 	}
 
-	const workerCount = 10
+	workerCount, err := strconv.Atoi(cfg.WorkerCount)
+	if err != nil {
+		log.Fatalf("something's wrong with a number of workers in .env: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -56,21 +61,21 @@ func main() {
 	go func() {
 		log.Println("server started on :8080")
 		if err = server.ListenAndServe(); err != nil && !errors.Is(http.ErrServerClosed, err) {
-			log.Fatalf("listen: %s\n", err)
+			log.Fatalf("error starting server: %s", err)
 		}
 	}()
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	<-signalChan
-	log.Println("shutting down gracefully...")
+	log.Println("gracefully stopping...")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
 	err = server.Shutdown(shutdownCtx)
 	if err != nil {
-		log.Fatalf("server couldn't shutdown gracefully: %v", err)
+		log.Fatalf("server couldn't stop gracefully: %v", err)
 	}
 
 	log.Println("server closed")

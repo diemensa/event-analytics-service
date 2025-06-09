@@ -6,6 +6,7 @@ import (
 	"github.com/diemensa/event-analytics-service/internal/handler/dto"
 	"github.com/diemensa/event-analytics-service/internal/model"
 	"github.com/diemensa/event-analytics-service/internal/service"
+	"github.com/go-playground/validator/v10"
 	"log"
 	"net/http"
 )
@@ -20,6 +21,7 @@ func NewEventHandler(s *service.EventService) *EventHandler {
 
 func (h *EventHandler) HandleCreateEvent(w http.ResponseWriter, r *http.Request) {
 
+	var validate = validator.New()
 	var event model.Event
 	decoder := json.NewDecoder(r.Body)
 	defer func() {
@@ -30,6 +32,11 @@ func (h *EventHandler) HandleCreateEvent(w http.ResponseWriter, r *http.Request)
 
 	if err := decoder.Decode(&event); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validate.Struct(event); err != nil {
+		http.Error(w, "validation error: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 

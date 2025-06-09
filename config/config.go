@@ -5,7 +5,8 @@ import (
 )
 
 type Config struct {
-	Port string
+	Port        string
+	WorkerCount string
 
 	DBHost     string
 	DBPort     string
@@ -22,7 +23,8 @@ type Config struct {
 func LoadEnv() *Config {
 
 	return &Config{
-		Port: os.Getenv("PORT"),
+		Port:        os.Getenv("PORT"),
+		WorkerCount: os.Getenv("WORKER_COUNT"),
 
 		DBHost:     os.Getenv("DB_HOST"),
 		DBPort:     os.Getenv("DB_PORT"),

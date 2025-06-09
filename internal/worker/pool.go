@@ -3,10 +3,12 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/diemensa/event-analytics-service/internal/metrics"
 	"github.com/diemensa/event-analytics-service/internal/model"
 	"github.com/diemensa/event-analytics-service/internal/repository"
 	"github.com/diemensa/event-analytics-service/internal/service"
+	"gorm.io/gorm"
 	"log"
 	"time"
 
@@ -39,6 +41,7 @@ func (p *Pool) Start(ctx context.Context, workerCount int) {
 				case msg, ok := <-p.events:
 					if !ok {
 						log.Printf("worker %d: events channel closed", workerID)
+						return
 					}
 
 					startTime := time.Now()
@@ -57,6 +60,13 @@ func (p *Pool) Start(ctx context.Context, workerCount int) {
 
 					err = p.service.SaveEvent(ctx, &event)
 					if err != nil {
+						if errors.Is(err, gorm.ErrDuplicatedKey) {
+							log.Printf("worker %d: event %s already exists, skipping", workerID, event.ID)
+							metrics.MessagesProcessed.WithLabelValues("fail").Inc()
+							_ = msg.Nack(false, false)
+							continue
+						}
+
 						log.Printf("worker %d failed to save event in DB: %v", workerID, err)
 						metrics.MessagesProcessed.WithLabelValues("fail").Inc()
 						_ = msg.Nack(false, true)
