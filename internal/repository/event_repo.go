@@ -2,35 +2,72 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"github.com/diemensa/event-analytics-service/internal/model"
-	"gorm.io/gorm"
-	"strings"
+	"github.com/jackc/pgx/v5/pgconn"
+	"log"
 )
 
 type EventRepo struct {
-	db *gorm.DB
+	db *sql.DB
 }
 
-func NewEventRepo(db *gorm.DB) *EventRepo {
+func NewEventRepo(db *sql.DB) *EventRepo {
 	return &EventRepo{db: db}
 }
 
-func (r *EventRepo) Save(ctx context.Context, event *model.Event) error {
-	err := r.db.WithContext(ctx).Create(event).Error
-	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(),
-			"unique constraint") {
-			return gorm.ErrDuplicatedKey
-		}
+var ErrDuplicatedKey = errors.New("duplicate key")
+
+func isDuplicateKey(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
 	}
+	return false
+}
+
+func (r *EventRepo) Save(ctx context.Context, event *model.Event) error {
+	query := `INSERT INTO events (id, type, timestamp, user_id)
+VALUES ($1, $2, $3, $4)`
+
+	_, err := r.db.ExecContext(ctx, query, event.ID, event.Type, event.Timestamp, event.UserID)
+
+	if err != nil {
+		if isDuplicateKey(err) {
+			return ErrDuplicatedKey
+		}
+		return err
+	}
+
 	return nil
 }
 
 func (r *EventRepo) GetEvents(ctx context.Context) ([]model.Event, error) {
+	query := `SELECT id, type, timestamp, user_id FROM events`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			log.Print("couldn't close rows after getting events from DB")
+		}
+	}()
+
 	var events []model.Event
 
-	err := r.db.WithContext(ctx).Find(&events).Error
-	if err != nil {
+	for rows.Next() {
+		var e model.Event
+		if err = rows.Scan(&e.ID, &e.Type, &e.Timestamp, &e.UserID); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 

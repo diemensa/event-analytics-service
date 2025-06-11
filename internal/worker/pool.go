@@ -8,7 +8,6 @@ import (
 	"github.com/diemensa/event-analytics-service/internal/model"
 	"github.com/diemensa/event-analytics-service/internal/repository"
 	"github.com/diemensa/event-analytics-service/internal/service"
-	"gorm.io/gorm"
 	"log"
 	"time"
 
@@ -60,7 +59,7 @@ func (p *Pool) Start(ctx context.Context, workerCount int) {
 
 					err = p.service.SaveEvent(ctx, &event)
 					if err != nil {
-						if errors.Is(err, gorm.ErrDuplicatedKey) {
+						if errors.Is(err, repository.ErrDuplicatedKey) {
 							log.Printf("worker %d: event %s already exists, skipping", workerID, event.ID)
 							metrics.MessagesProcessed.WithLabelValues("fail").Inc()
 							_ = msg.Nack(false, false)

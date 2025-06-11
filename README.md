@@ -18,10 +18,9 @@ event-analytics-service — это микросервис для приёма, �
 ## Технологии
 
 - Go 1.24.2
-- GORM
 - RabbitMQ
-- PostgreSQL
+- PostgreSQL (через pgx)
 - Prometheus (метрики посылаются на localhost:8080/metrics)
-- Grafana (localhost:53000, admin/admin)
+- Grafana (localhost:3000, admin/admin)
 - Docker
 ---
