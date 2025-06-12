@@ -1,23 +1,23 @@
 package config
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func InitPostgres(host, user, pw, dbname, port string) (*sql.DB, error) {
+func InitPostgres(ctx context.Context, host, user, pw, dbname, port string) (*pgxpool.Pool, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		host, user, pw, dbname, port,
 	)
 
-	db, err := sql.Open("pgx", dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = db.Ping(); err != nil {
+	if err = pool.Ping(ctx); err != nil {
 		return nil, err
 	}
 
@@ -29,9 +29,9 @@ func InitPostgres(host, user, pw, dbname, port string) (*sql.DB, error) {
 		user_id UUID
 	);`
 
-	if _, err = db.Exec(createTableQuery); err != nil {
+	if _, err = pool.Exec(ctx, createTableQuery); err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	return pool, nil
 }

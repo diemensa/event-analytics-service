@@ -20,8 +20,10 @@ import (
 
 func main() {
 	cfg := config.LoadEnv()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	db, err := config.InitPostgres(cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
+	db, err := config.InitPostgres(ctx, cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
 	if err != nil {
 		log.Fatalf("couldn't connect to database: %v", err)
 	}
@@ -30,9 +32,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("something's wrong with a number of workers in .env: %v", err)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	rabbitRepo, err := broker.NewRabbitPublisher(cfg.RabbitMQURI, cfg.RabbitQueueName)
 	if err != nil {

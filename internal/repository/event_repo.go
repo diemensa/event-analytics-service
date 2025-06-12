@@ -2,18 +2,17 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"github.com/diemensa/event-analytics-service/internal/model"
 	"github.com/jackc/pgx/v5/pgconn"
-	"log"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type EventRepo struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewEventRepo(db *sql.DB) *EventRepo {
+func NewEventRepo(db *pgxpool.Pool) *EventRepo {
 	return &EventRepo{db: db}
 }
 
@@ -31,7 +30,7 @@ func (r *EventRepo) Save(ctx context.Context, event *model.Event) error {
 	query := `INSERT INTO events (id, type, timestamp, user_id)
 VALUES ($1, $2, $3, $4)`
 
-	_, err := r.db.ExecContext(ctx, query, event.ID, event.Type, event.Timestamp, event.UserID)
+	_, err := r.db.Exec(ctx, query, event.ID, event.Type, event.Timestamp, event.UserID)
 
 	if err != nil {
 		if isDuplicateKey(err) {
@@ -46,16 +45,11 @@ VALUES ($1, $2, $3, $4)`
 func (r *EventRepo) GetEvents(ctx context.Context) ([]model.Event, error) {
 	query := `SELECT id, type, timestamp, user_id FROM events`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = rows.Close()
-		if err != nil {
-			log.Print("couldn't close rows after getting events from DB")
-		}
-	}()
+	defer rows.Close()
 
 	var events []model.Event
 
