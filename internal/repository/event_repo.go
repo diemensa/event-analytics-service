@@ -5,14 +5,13 @@ import (
 	"errors"
 	"github.com/diemensa/event-analytics-service/internal/model"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type EventRepo struct {
-	db *pgxpool.Pool
+	db PGXPool
 }
 
-func NewEventRepo(db *pgxpool.Pool) *EventRepo {
+func NewEventRepo(db PGXPool) *EventRepo {
 	return &EventRepo{db: db}
 }
 
