@@ -7,13 +7,13 @@ import (
 	"net/http"
 )
 
-func SetupHandlers(s *service.EventService) {
+func SetupHandlers(s service.Service) {
 	eventHandler := NewEventHandler(s)
 
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			eventHandler.NewGetEventHandler(w, r)
+			eventHandler.HandleGetEvents(w, r)
 		case http.MethodPost:
 			eventHandler.HandleCreateEvent(w, r)
 		default:

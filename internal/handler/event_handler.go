@@ -12,10 +12,10 @@ import (
 )
 
 type EventHandler struct {
-	eventService *service.EventService
+	eventService service.Service
 }
 
-func NewEventHandler(s *service.EventService) *EventHandler {
+func NewEventHandler(s service.Service) *EventHandler {
 	return &EventHandler{eventService: s}
 }
 
@@ -40,12 +40,12 @@ func (h *EventHandler) HandleCreateEvent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	go func(e model.Event) {
-		ctx := context.Background()
+	ctx := r.Context()
+	go func(ctx context.Context, e model.Event) {
 		if err := h.eventService.SendToRabbit(ctx, &e); err != nil {
 			log.Printf("failed to send event to RabbitMQ: %v", err)
 		}
-	}(event)
+	}(ctx, event)
 
 	resp := dto.CreateEventResponse{
 		ID:     event.ID,
@@ -59,7 +59,7 @@ func (h *EventHandler) HandleCreateEvent(w http.ResponseWriter, r *http.Request)
 
 }
 
-func (h *EventHandler) NewGetEventHandler(w http.ResponseWriter, r *http.Request) {
+func (h *EventHandler) HandleGetEvents(w http.ResponseWriter, r *http.Request) {
 
 	events, err := h.eventService.GetEvents(r.Context())
 
@@ -68,8 +68,9 @@ func (h *EventHandler) NewGetEventHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err = writeJson(w, http.StatusAccepted, events); err != nil {
+	if err = writeJson(w, http.StatusOK, events); err != nil {
 		http.Error(w, "failed to encode events: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 }

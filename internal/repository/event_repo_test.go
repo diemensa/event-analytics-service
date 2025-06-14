@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"github.com/diemensa/event-analytics-service/internal/model"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -38,7 +37,6 @@ func TestEventRepo_Save_Success(t *testing.T) {
 	err = repo.Save(ctx, testEvent)
 
 	assert.NoError(t, err)
-	fmt.Println(mockDB.ExpectationsWereMet())
 	assert.NoError(t, mockDB.ExpectationsWereMet())
 
 }
