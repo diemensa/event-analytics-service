@@ -27,3 +27,26 @@ event-analytics-service — это микросервис для приёма, �
 - Testify + Mockery
 - Docker
 ---
+
+## Запуск
+
+### Linux/MacOS
+1. Клонировать репозиторий:
+   ```bash
+   git clone https://github.com/diemensa/event-analytics-service
+   cd event-analytics-service
+2. Запустить тесты и приложение:
+   ```bash
+   make
+
+### Windows
+1. Клонировать репозиторий:
+   ```bash
+   git clone https://github.com/diemensa/event-analytics-service
+   cd event-analytics-service
+2. Запустить тесты:
+   ```bash
+   go test -v ./...
+3. Собрать и запустить проект через docker-compose:
+   ```bash
+   docker-compose up --build
