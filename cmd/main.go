@@ -53,9 +53,9 @@ func main() {
 	workerPool := worker.NewPool(eventService, eventRepo, messageChan)
 	workerPool.Start(ctx, workerCount)
 
-	handler.SetupHandlers(eventService)
+	router := handler.SetupHandlers(eventService)
 
-	server := &http.Server{Addr: ":8080", Handler: nil}
+	server := &http.Server{Addr: ":8080", Handler: router}
 
 	go func() {
 		log.Println("server started on :8080")
